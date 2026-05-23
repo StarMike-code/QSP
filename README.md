@@ -34,257 +34,109 @@
 ## 目录
 
 1. [项目简介](#项目简介)
-2. [系统概述](#系统概述)
-3. [系统架构](#系统架构)
-4. [项目结构](#项目结构)
-5. [核心模块详解](#核心模块详解)
-6. [快速开始](#快速开始)
-7. [测试覆盖](#测试覆盖)
-8. [安全特性](#安全特性)
-9. [技术依赖](#技术依赖)
-10. [环境准备](#环境准备)
-11. [安装与启动](#安装与启动)
-12. [核心功能使用](#核心功能使用)
-13. [常见问题](#常见问题)
+   - [贡献者](#贡献者)
+   - [功能特性](#功能特性)
+   - [整体框架](#整体框架)
+   - [项目结构](#项目结构)
+2. [快速开始](#快速开始)
+3. [环境准备](#环境准备)
+4. [安装与启动](#安装与启动)
+5. [核心功能描述](#核心功能描述)
+6. [系统具体使用流程](#系统具体使用流程)
+7. [常见问题](#常见问题)
+8. [技术支持](#技术支持)
+9. [附录：配置参数说明](#附录配置参数说明)
 
 ---
 
 ## 项目简介
 
-QSP是一个基于格密码学的综合性安全系统，专注于提供抗量子计算攻击的加密通信、身份认证和资产保护功能。该系统利用格密码的抗量子特性，结合P2P网络、可靠UDP和Shamir秘密共享,项目由暨南大学杨昊文、熊逸航完成。
+QSP是一个基于格密码学的综合性安全系统，专注于提供抗量子计算攻击的加密通信、身份认证和秘密文件共享与传输功能。本系统利用格密码的抗量子特性，结合P2P网络、可靠UDP和Shamir秘密共享,项目由暨南大学杨昊文、熊逸航完成。
 
 
-## 贡献者
+### 贡献者
 
-| 姓名/昵称 | GitHub ID | 贡献内容 | 联系方式 | 作者单位 |
-|----------|-----------|---------|---------|---------|
-| 熊逸航 | ARS4EVER | 代码编写、测试维护、漏洞修复 | 2568910086@qq.com |暨南大学网络空间安全学院 |
-| 杨昊文 | amonadam | 项目架构、代码编写、测试维护 | 3032875322@qq.com |暨南大学网络空间安全学院 |
+| 姓名/昵称 | GitHub ID | 贡献内容 | 联系方式 |
+|----------|-----------|---------|---------|
+| 熊逸航 | ARS4EVER | 代码编写、测试维护、漏洞修复 | 2568910086@qq.com |
+| 杨昊文 | amonadam | 项目架构、代码编写、测试维护 | 3032875322@qq.com |
 
 
-### 核心特性
+### 功能特性
 
-1. **纯正抗量子基因** - 100% 遵守 NIST FIPS 203 (Kyber512) 和 FIPS 204 (Dilithium2) 标准
-2. **绝对安全握手** - 基于 `Dilithium Sign(Kyber_Ciphertext)` 混合架构，完美抵御中间人攻击 (MITM)
-3. **极简业务流** - `REQ-RESP` 单轮交互，配合 JSON 序列化和 AES-GCM，实现高吞吐量
-4. **无缝 Shamir 门限** - 数据容灾由业务层 `Splitter/Reconstructor` 接管，密码层与业务层完全解耦
-5. **本地金库加密** - 基于 PBKDF2HMAC 和 AES-256-GCM 的透明加密，防范物理设备被攻破
-6. **邀请码瘦身** - 采用公钥指纹验证机制，大幅减少邀请码大小，提升传输效率
-7. **NAT 穿透** - 支持 UDP 打洞和心跳保活，实现真正的去中心化 P2P 连接
-8. **可靠 UDP** - 集成 SACK 和拥塞控制，提供接近 TCP 的可靠性和 UDP 的低延迟
+1. 当前的加密通信方式大多采用传统的非对称加密算法，比如RSA,ECC等，这些算法在量子计算下存在被破解的风险，本系统严格采用 NIST 最新的 ML-KEM-512 与 ML-DSA-44 标准构建了 1.5-RTT 的安全握手协议实现后量子时代的加密通信，并借此实现了多方密钥安全协商。
+2. 传统的云存储服务高度依赖中心化服务器，极易遭遇单点故障，本系统通过引入 Shamir 秘密共享 (t, n) 门限算法结合本地 AES-256-GCM 加密，将机密资产打散并安全分发至 P2P 网络，实现了去中心化的秘密文件存储的安全性。
+3. 为解决经典的Shamir秘密共享在处理大文件时，数据量过大导致传输效率低的问题，本系统引入基于伽罗瓦域 GF(256) 的查表法进行深度优化，将乘除法时间复杂度降至 O(1)，用空间换时间，成功提高了大文件的传输与重构效率，
+4. 为解决复杂 NAT 网络节点直连困难、普通 UDP 难以保障弱网下大文件可靠传输以及易受重放攻击等难点，本系统通过采用基于 STUN 的 UDP 打洞技术，带有 SACK 与拥塞控制机制的 RUDP 协议，并引入高熵挑战-应答机制，在保证极低延迟的同时实现了可靠传输。
 
 ---
 
-## 系统概述
+### 整体框架
 
-QSP提供以下核心功能：
 
-- ✅ **抗量子加密**：使用 NIST 标准的 Kyber 和 Dilithium 算法
-- ✅ **P2P 网络通信**：支持 NAT 穿透和 UDP 打洞
-- ✅ **Shamir 秘密共享**：将文件分割成多份，需要指定数量的份额才能恢复
-- ✅ **本地金库加密**：使用 AES-256-GCM 保护本地数据
 
----
+![framework](./image/framework.png)
 
-## 系统架构
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      业务层                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │ BackupManager│  │ RecoveryManager │  │ AppRouter      │  │
-│  │              │  │              │  │                │  │
-│  └──────────────┘  └──────────────┘  └────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      应用层                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │ AppMessage   │  │ AppProtocol  │  │ UIBridge       │  │
-│  │              │  │              │  │                │  │
-│  └──────────────┘  └──────────────┘  └────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      核心协议层                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │ChallengeAuth │  │RecoveryHost  │  │RecoveryParticipant│
-│  │              │  │              │  │                │  │
-│  └──────────────┘  └──────────────┘  └────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      安全通道                                │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ SecureLink: SecureChannel + RUDP + Heartbeat        │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      密码学层                                │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────┐  │
-│  │ Lattice-   │ │ KeyGen    │ │ Dilithium- │ │Kyber- │  │
-│  │ Wrapper    │ │           │ │ Signer     │ │KEM    │  │
-│  └────────────┘ └────────────┘ └────────────┘ └──────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      配置层                                  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ config.py: SigParams, KEMParams, ThresholdParams    │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
 
 ---
 
-## 项目结构
+### 项目结构
 
 ```
-QSP1/
+QSP-main/
 ├── GUI/
 │   └── main_window.py        # 现代化 GUI 界面
 ├── data/
-│   ├── keys/                  # 身份密钥
-│   │   └── node_identity.json
+│   ├── keys/                  # 身份密钥 (AES-256-GCM 加密存储)
+│   │   ├── node_identity.dat  # 加密的节点身份文件
+│   │   ├── .vault_salt        # 密钥派生盐值
+│   │   └── .vault_verifier    # 密码验证器
 │   ├── shares/                # 资产份额和清单
-│   │   ├── {哈希前8位}_manifest.json
-│   │   └── {文件哈希}_share_X.dat
+│   │   ├── {文件哈希}_share_X.dat
+│   │   └── .qsp_identity.pem  # 节点身份证书
 │   └── restored/              # 恢复的资产
 │       └── recovered_{文件名}
+├── image/                    # 图像资源
+│   └── logo.jpg              # 项目 Logo
 ├── src/
-│   ├── app/                 # 应用层 (Phase 10)
+│   ├── app/                  # 应用层 (Phase 10)
 │   │   ├── app_protocol.py     # 应用层消息协议
 │   │   ├── app_router.py       # 应用层消息路由
 │   │   ├── backup_manager.py   # 资产备份管理器
 │   │   ├── recovery_manager.py # 资产恢复管理器
-│   │   ├── ui_bridge.py         # UI 桥接器
+│   │   ├── ui_bridge.py        # UI 桥接器
 │   │   └── vault_crypto.py     # 本地金库加密引擎
-│   ├── crypto_lattice/     # 格密码模块 (Phase 1)
+│   ├── core/                  # 核心协议层
+│   │   ├── challenge_auth.py   # 挑战认证协议
+│   │   ├── messages.py         # 协议消息定义
+│   │   ├── recovery_host.py    # 恢复主机逻辑
+│   │   └── recovery_participant.py # 恢复参与者逻辑
+│   ├── crypto_lattice/        # 格密码模块 (Phase 1)
 │   │   ├── wrapper.py         # 统一适配器 (ML-DSA + ML-KEM)
-│   │   ├── keygen.py         # 密钥生成
-│   │   ├── signer.py         # 标准签名器 (DilithiumSigner)
-│   │   └── encryptor.py      # 密钥封装 (KyberKEM)
-│   ├── network/             # 网络通信模块 (Phase 2)
+│   │   ├── keygen.py          # 密钥生成
+│   │   ├── signer.py          # 标准签名器 (DilithiumSigner)
+│   │   └── encryptor.py       # 密钥封装 (KyberKEM)
+│   ├── network/              # 网络通信模块 (Phase 2)
 │   │   ├── secure_channel.py   # 安全通道
 │   │   ├── secure_link.py      # 安全链接 (含心跳)
 │   │   ├── p2p_manager.py     # P2P 管理
 │   │   ├── rudp.py            # 可靠 UDP
 │   │   ├── protocol.py        # 通信协议
 │   │   └── congestion.py      # 拥塞控制
-│   ├── secret_sharing/      # 秘密共享模块
+│   ├── secret_sharing/       # 秘密共享模块
 │   │   ├── splitter.py         # Shamir 分割器
-│   │   └── reconstructor.py   # Shamir 重构器
-│   ├── utils/               # 工具函数
-│   └── config.py            # 全局配置
-├── tests/                   # 测试代码目录
-├── main.py                  # 主程序入口
-├── requirements.txt         # 依赖包列表
-└── README.md                # 本文档
+│   │   ├── reconstructor.py   # Shamir 重构器
+│   │   └── gf256.py           # GF(256) 有限域运算
+│   ├── utils/                # 工具函数
+│   │   ├── data_handler.py     # 数据处理工具
+│   │   └── logger.py          # 日志工具
+│   └── config.py             # 全局配置
+├── tests/                    # 测试代码目录
+├── main.py                   # 主程序入口
+├── requirements.txt          # 依赖包列表
+└── README.md                 # 本文档
 ```
-
----
-
-## 核心模块详解
-
-### 1. 应用层 (`src/app/`)
-
-现代化的业务逻辑实现：
-
-- **vault_crypto.py** - 本地金库加密引擎
-  - `VaultCrypto._derive_key()` - 基于 PBKDF2HMAC 的密钥派生
-  - `VaultCrypto.encrypt_chunk()` / `decrypt_chunk()` - AES-256-GCM 块级加密/解密
-  - 防范物理设备被攻破导致的数据泄露
-
-- **backup_manager.py** - 资产备份管理器
-  - `BackupManager.execute_backup()` - 执行资产备份和网络分发
-  - `BackupManager._save_share_locally()` - 本地加密存储份额
-  - 支持 P2P 网络传输和断点续传
-
-- **recovery_manager.py** - 资产恢复管理器
-  - `RecoveryManager.execute_recovery()` - 执行资产恢复和网络寻呼
-  - `RecoveryManager._try_reconstruct_streaming()` - 流式重构资产
-  - 支持网络乱序分块接收和断点续传
-
-- **app_protocol.py** - 应用层消息协议
-  - `AppMessage.pack()` / `unpack()` - 消息序列化和反序列化
-  - 支持 SHARE_PUSH、PULL_REQ、PULL_RESP 等消息类型
-
-- **app_router.py** - 应用层消息路由
-  - `AppRouter.register_handler()` - 注册消息处理器
-  - `AppRouter.dispatch_network_data()` - 分发网络数据
-  - 支持线程安全的 UI 更新
-
-- **ui_bridge.py** - UI 桥接器
-  - `UIBridge.run_in_main_thread()` - 在主线程中运行 UI 更新
-  - `UIBridge.safe_update_progress()` - 安全更新进度条
-  - 解决多线程 UI 更新问题
-
-### 2. 密码学层 (`src/crypto_lattice/`)
-
-基于 NIST 标准的后量子密码学实现：
-
-- **wrapper.py** - 统一适配器
-  - `LatticeWrapper.generate_signing_keypair()` - 生成 Dilithium 签名密钥对
-  - `LatticeWrapper.sign_message()` / `verify_signature()` - 标准签名/验签
-  - `LatticeWrapper.kem_keygen()` / `encapsulate()` / `decapsulate()` - Kyber512 密钥交换
-
-- **keygen.py** - 密钥生成工具
-  - `KeyGen.generate_keys()` - 生成密钥对
-  - `KeyGen.save_keys()` / `load_keys()` - 密钥持久化
-
-- **signer.py** - 标准签名器
-  - `DilithiumSigner.sign()` - 使用私钥签名
-  - `DilithiumSigner.verify()` - 使用公钥验签
-
-- **encryptor.py** - 密钥封装
-  - `KyberKEM.generate_keypair()` - 生成 KEM 密钥对
-  - `KyberKEM.encapsulate()` / `decapsulate()` - 密钥封装/解封装
-
-### 3. 网络通信层 (`src/network/`)
-
-端到端加密通信：
-
-- **secure_link.py** - 安全链接
-  - 集成 SecureChannel、RUDP 和心跳保活
-  - 支持多路复用和 NAT 穿透
-  - 采用公钥指纹验证机制，提升安全性和效率
-
-- **secure_channel.py** - 安全通道
-  - 集成 Kyber512 密钥交换
-  - 集成 Dilithium2 身份认证
-  - 使用 AES-256-GCM 加密业务数据
-  - 支持中间人攻击拦截
-
-- **p2p_manager.py** - P2P 节点管理
-  - `P2PNode.connect_via_invite()` - 通过邀请码连接
-  - `P2PNode.generate_invite_code()` - 生成轻量化邀请码
-  - 支持 UDP 打洞和 NAT 穿透
-
-- **rudp.py** - 可靠 UDP 传输
-  - `RUDPConnection.receive_data()` - 接收数据并生成 SACK
-  - `RUDPConnection.handle_sack()` - 处理 SACK 并触发重传
-  - 支持乱序到达和快速重传
-
-- **protocol.py** - 二进制通信协议
-  - `QSPProtocol.pack()` / `unpack()` - 数据包封装和解析
-  - 支持 KEEPALIVE、HOLEPUNCH 等消息类型
-
-- **congestion.py** - 延迟梯度拥塞控制
-  - `HybridCongestionControl.on_ack()` - 处理 ACK 并调整拥塞窗口
-  - 基于延迟梯度和丢包率的混合拥塞控制
-
-### 4. 秘密共享 (`src/secret_sharing/`)
-
-基于 Shamir's Secret Sharing 的门限容灾：
-
-- **splitter.py** - 秘密分割
-  - `SecretSplitter.split_secret()` - 将秘密分割为 n 个份额
-  - 支持 GF(256) 查表加速
-
-- **reconstructor.py** - 秘密重构
-  - `SecretReconstructor.reconstruct()` - 使用 t 个份额重构秘密
-  - 支持流式重构和大文件处理
 
 ---
 
@@ -303,7 +155,7 @@ pip install -r requirements.txt
 python -m unittest discover tests -v
 
 # 运行特定模块测试
-python -m unittest tests.test_wrapper tests.test_keygen_phase2 tests.test_signer_phase2 tests.test_secure_channel_phase2 tests.test_vault_encryption_phase10 tests.test_holepunch_phase5 tests.test_large_file_streaming tests.test_integration_final -v
+python -m unittest tests.test_wrapper tests.test_keygen_phase2 tests.test_signer_phase2 tests.test_encryptor_phase2 tests.test_config_phase2 tests.test_secure_channel_phase2 tests.test_holepunch_phase5 tests.test_p2p_multiplexing tests.test_rudp_sack tests.test_congestion_phase4 tests.test_secure_link_phase6 tests.test_keepalive_phase8 tests.test_vault_encryption_phase10 tests.test_large_file_streaming tests.test_recovery_streaming_phase7 tests.test_app_protocol tests.test_app_protocol_phase2 tests.test_app_router tests.test_c10_two_way_auth tests.test_c4_c9_security tests.test_c8_challenge_auth tests.test_c8_clock_sync_replay tests.test_c8_phases3_4 tests.test_c9_typo_detection tests.test_ui_sync_phase5 tests.test_integration_final -v
 ```
 
 ### 3. 运行系统
@@ -314,73 +166,7 @@ python main.py
 
 ---
 
-## 测试覆盖
 
-| 测试模块 | 测试内容 |
-|----------|----------|
-| test_wrapper.py | ML-DSA 签名/验签、ML-KEM 封装/解封装 |
-| test_keygen_phase2.py | 标准密钥生成与存储 |
-| test_signer_phase2.py | 标准 Dilithium 签名器 |
-| test_encryptor_phase2.py | Kyber KEM 密钥交换 |
-| test_config_phase2.py | 配置参数验证 |
-| test_secure_channel_phase2.py | 安全通道握手、AES-GCM 加密 |
-| test_holepunch_phase5.py | NAT 穿透和 UDP 打洞 |
-| test_p2p_multiplexing.py | P2P 多路复用 |
-| test_rudp_sack.py | 可靠 UDP 和 SACK 机制 |
-| test_congestion_phase4.py | 延迟梯度拥塞控制 |
-| test_secure_link_phase6.py | 安全链接和心跳保活 |
-| test_keepalive_phase8.py | NAT 保活机制 |
-| test_vault_encryption_phase10.py | 本地金库加密和防篡改 |
-| test_large_file_streaming.py | 大文件流式切分和重构 |
-| test_recovery_streaming_phase7.py | 网络乱序分块接收和断点续传 |
-| test_app_protocol.py | 应用层消息协议 |
-| test_app_router.py | 应用层消息路由 |
-| test_integration_final.py | 端到端集成测试 |
-
-**所有测试全部通过** ✅
-
----
-
-## 安全特性
-
-1. **抗量子安全**
-   - NIST FIPS 203 ML-KEM-512 (Kyber512)
-   - NIST FIPS 204 ML-DSA-44 (Dilithium2)
-   
-2. **身份认证**
-   - Dilithium 标准签名
-   - 公钥指纹验证
-   - 中间人攻击拦截
-   
-3. **数据加密**
-   - AES-256-GCM
-   - 前向安全性
-   - 本地金库加密
-   
-4. **门限容灾**
-   - Shamir Secret Sharing
-   - (t, n) 门限方案
-   - 流式重构
-
-5. **网络安全**
-   - UDP 打洞和 NAT 穿透
-   - 可靠 UDP 与 SACK
-   - 延迟梯度拥塞控制
-   - 心跳保活机制
-
----
-
-## 技术依赖
-
-- Python 3.9+
-- dilithium-py
-- kyber-py
-- cryptography
-- numpy
-- customtkinter
-- pillow
-
----
 
 ## 环境准备
 
@@ -436,80 +222,154 @@ python main.py
 
 ---
 
-## 核心功能使用
+## 核心功能描述
 
-### 功能一：身份与网络
+### 功能一：身份管理与身份认证
 
-#### 1.1 查看和复制本机邀请码
+#### 1.1 抗量子身份生成与验证
 
-1. 启动应用后，默认显示"身份与网络"标签页
-2. 顶部会显示你的**本机专属邀请码**
-3. 点击"复制邀请码"按钮，将邀请码复制到剪贴板
-4. 将此邀请码发送给其他需要连接的节点
+系统采用 **NIST FIPS 204 ML-DSA-44 (Dilithium)** 数字签名算法实现身份认证：
 
-**邀请码的作用**：
-- 包含你的公钥指纹和网络坐标
-- 其他节点通过此邀请码可以安全地连接到你
+- **身份生成**：基于格密码学的后量子签名密钥对，公钥大小 1312 字节，私钥 2528 字节
+- **身份验证**：采用公钥指纹验证机制，有效缩小证书体积，提升验证效率
+- **挑战-响应协议**：实现双向认证流程，防止中间人攻击（MITM）
+- **身份存储**：通过 PBKDF2HMAC-SHA256 密钥派生，结合 AES-256-GCM 加密本地身份凭证
 
-#### 1.2 连接远端节点
+**技术特点**：
+- 基于模块格上的短整数解（SIS）问题，抗量子计算攻击
+- 签名大小约 2420 字节，安全强度等价于 AES-128
+- 支持确定性与概率性签名生成
+- 本地身份文件加密存储于 [data/keys/node_identity.dat](data/keys/node_identity.dat)
 
-1. 获取其他节点的邀请码
-2. 在"连接远端节点"输入框中粘贴邀请码
-3. 点击"发起UDP穿透与安全握手"按钮
-4. 等待连接建立（状态会显示"安全链接建立"）
+#### 1.2 邀请码机制与网络发现
 
-**连接过程**：
-- 系统会自动执行 UDP 打洞（NAT 穿透）
-- 使用 Kyber 密钥交换建立加密通道
-- 使用 Dilithium 签名进行身份认证
+采用创新的 **公钥指纹 + 网络坐标** 邀请码机制：
+
+- **邀请码结构**：包含节点 ID、公钥哈希、公网 IP 和端口信息
+- **安全发现**：通过 STUN 服务器获取公网坐标，支持 IPv4/IPv6 双栈
+- **身份验证**：建立连接前验证 Dilithium 签名，确保节点身份真实性
+- **轻量传输**：邀请码体积压缩，便于在多种渠道传输
+
+### 功能二：抗量子安全通信
+
+#### 2.1 ML-KEM-512 密钥封装机制
+
+通信通道建立采用 **NIST FIPS 203 ML-KEM-512 (Kyber)** 密钥封装算法：
+
+- **密钥交换**：Kyber512 封装机制，公钥 800 字节，密文 768 字节
+- **前向保密**：每次会话生成新的密钥材料，确保历史通信安全
+- **完美前向保密**：长期密钥泄露不影响已建立会话的安全性
+- **实现细节**：模块格上的学习带误差（MLWE）问题提供量子安全保障
+
+#### 2.2 AES-256-GCM 安全通道
+
+应用层数据传输采用认证加密算法：
+
+- **加密算法**：AES-256-GCM 提供机密性、完整性和认证性
+- **认证标签**：128 位认证标签，防止消息篡改
+- **随机 Nonce**：96 位 Nonce，确保密文不可预测性
+- **数据分片**：大文件分片传输，提高传输可靠性
+
+#### 2.3 可靠 UDP (RUDP) 传输协议
+
+自定义传输层协议实现可靠数据传输：
+
+- **选择性确认 (SACK)**：基于 SACK 机制的重传策略，减少冗余数据传输
+- **延迟梯度拥塞控制**：Hybrid 混合拥塞控制算法，结合延迟梯度与丢包率
+- **心跳保活**：周期性心跳检测，维护连接状态
+- **乱序重组**：支持数据包乱序到达与重组
+
+**性能指标**：
+- 支持最大 1400 字节 MTU
+- 拥塞窗口动态调整，适应网络变化
+- 丢包率小于 0.1% 时吞吐量接近 TCP
+
+### 功能三：分布式秘密共享与数据容灾
+
+#### 3.1 Shamir (t, n) 门限方案
+
+数据容灾基于 **Shamir's Secret Sharing** 算法：
+
+- **数学基础**：GF(256) 有限域上的多项式插值
+- **门限参数**：(t, n) 方案，t 为恢复门限，n 为参与者总数
+- **查表加速**：预计算 GF(256) 乘法/加法表，提升性能 10 倍以上
+- **信息论安全**：少于 t 个份额无法获取任何明文信息
+
+#### 3.2 分布式备份流程
+
+完整的备份流程包含以下步骤：
+
+1. **文件加密**：首先使用 AES-256-GCM 加密源文件
+2. **秘密分割**：将加密后的文件分割为 n 个份额
+3. **份额签名**：每个份额使用 Dilithium 私钥签名，确保完整性
+4. **分发存储**：通过 P2P 网络将份额分发至已连接节点
+5. **清单生成**：生成包含元数据的清单文件，用于恢复
+
+**安全特性**：
+- 每个份额独立加密存储
+- 支持任意大小文件的流式处理
+- 进度实时反馈与断点续传
+
+#### 3.3 多方恢复机制
+
+数据恢复流程实现多方协同：
+
+1. **清单导入**：读取元数据清单，确定所需份额数量
+2. **网络寻呼**：向 P2P 网络广播份额请求
+3. **份额验证**：验证每个收到份额的 Dilithium 签名
+4. **秘密重构**：收集 ≥ t 个有效份额，通过拉格朗日插值重构原始文件
+5. **完整性校验**：重构后验证文件哈希值
+
+**容错能力**：
+- 最多可容忍 n - t 个节点失效
+- 支持网络节点动态加入/退出
+- 份额来源不可预测，提升安全性
+
+### 功能四：本地金库加密
+
+#### 4.1 密码派生与加密机制
+
+本地敏感数据采用金库式加密保护：
+
+- **密钥派生**：PBKDF2HMAC-SHA256，迭代次数 100000+
+- **盐值管理**：随机生成 16 字节盐值，存储于 [data/keys/.vault_salt](data/keys/.vault_salt)
+- **验证机制**：派生验证哈希，存储于 [data/keys/.vault_verifier](data/keys/.vault_verifier)
+- **加密模式**：AES-256-GCM 认证加密，提供完整性保证
+
+#### 4.2 安全特性
+
+- **防暴力破解**：高迭代次数的密钥派生，显著增加破解难度
+- **防篡改**：GCM 模式提供认证标签，数据被篡改可立即检测
+- **零知识验证**：密码验证过程不暴露任何密码相关信息
+- **数据隔离**：敏感数据与普通数据存储隔离
+
+### 功能五：P2P 网络与 NAT 穿透
+
+#### 5.1 UDP 打洞技术
+
+实现完整的 NAT 穿透方案：
+
+- **STUN 协议**：会话遍历 UDP NAT，获取公网映射地址
+- **打洞流程**：双向同时发送探测包，建立 UDP 会话
+- **NAT 类型**：支持 Full Cone、Restricted Cone、Port Restricted Cone、Symmetric NAT
+- **心跳保活**：维持 NAT 端口映射，防止会话超时
+
+#### 5.2 网络架构
+
+- **去中心化**：无中心服务器的P2P 网络架构
+- **动态发现**：支持节点动态加入与离开
+- **连接复用**：单端口多连接，支持多路复用
+- **状态监控**：实时连接状态监控与自动重连
 
 ---
 
-### 功能二：资产备份
+## 系统具体使用流程
 
-#### 2.1 备份流程
 
-1. 点击左侧边栏的"资产备份"标签
-2. 点击"选择待保护机密文件"按钮
-3. 在弹出的文件选择框中选择要保护的文件
-4. 设置参数：
-   - **总节点数 (N)**：将文件分割成多少份（默认 5）
-   - **恢复门限 (T)**：需要多少份才能恢复文件（默认 3）
-   - ⚠️ 注意：必须满足 `1 < T <= N`
-5. 点击"执行核心资产分割与加密"按钮
-6. 等待进度条完成
 
-#### 2.2 备份完成后
+![framework](./image/framework_flow.png)
 
-- 系统会显示成功提示，包含**元数据清单文件的保存位置**
-- 请妥善保管这个清单文件（`.json` 格式），恢复时需要用到
-- 文件份额会通过 P2P 网络分发到已连接的节点
 
-**备份原理**：
-1. 文件被加密（AES-256-GCM）
-2. 使用 Shamir 秘密共享算法分割成 N 份
-3. 份额加密存储并分发到网络
-4. 需要至少 T 份才能重构原文件
-
----
-
-### 功能三：资产恢复
-
-#### 3.1 恢复流程
-
-1. 点击左侧边栏的"资产恢复"标签
-2. 点击"导入资产清单 (Manifest)"按钮
-3. 选择备份时生成的清单文件（`.json`）
-4. 点击"执行身份签名验证与资产重构"按钮
-5. 等待进度条完成
-
-#### 3.2 恢复过程
-
-- 系统会向 P2P 网络广播拉取请求
-- 收集足够的份额（>= T）
-- 验证每个份额的身份签名
-- 使用 Shamir 算法重构原始文件
-- 恢复完成后会显示文件保存位置
 
 ---
 
@@ -573,7 +433,7 @@ python -m pip install --upgrade --force-reinstall pip
 ### Q7: 可以在多台设备上使用同一身份吗？
 
 **A**: 不建议。每个节点应该有独立的身份：
-- 身份文件存储在 `data/keys/node_identity.json`
+- 身份文件存储在 `data/keys/node_identity.dat`（AES-256-GCM 加密）
 - 如果需要在多台设备使用，可以复制此文件（但存在安全风险）
 - 更好的方式是让每台设备生成独立身份，然后互相连接
 
@@ -612,9 +472,4 @@ python -m pip install --upgrade --force-reinstall pip
 4. **改进文档** - 帮助完善使用文档
 5. **推广宣传** - 分享给更多人使用
    
-**欢迎提出改进意见** ✨ 
-
-
-
-
-
+**欢迎提出改进意见** ✨
