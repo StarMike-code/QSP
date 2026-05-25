@@ -311,7 +311,7 @@ python main.py
 <div align="center">
   <blockquote>
     <strong>⚠️ 提示</strong><br>
-    若有项目功能方面或运行问题，请查阅 <strong><code>Function description.md</code></strong>
+    若有项目功能方面或运行问题，请查阅 <strong><a href="./Function description.md"><code>Function description.md</code></a></strong>
   </blockquote>
 </div>
 ---
